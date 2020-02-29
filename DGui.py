@@ -1,8 +1,13 @@
 import discord
 import copy
 from discord.ext import commands
+
 class gui:
 #class vars and functions
+	#this represents the prefex marking our guis from other guis in the same chat that are using this script
+	#NOTE: it cannot contain a - or a : as the bot uses those as ancors to figure out the rest of the message
+	#any other letter should be fine
+	gui_prefix = 'guiId'
 	gui_arr = []
 	def testUniq(Id):
 		for g in gui.gui_arr:
@@ -32,7 +37,9 @@ class gui:
 		return False
 #object vars and functions
 	def __init__(self,emojiList):
+		#the uniqu ID of a given gui
 		self.Id = 0
+		#this is a list of emojis to place on the bottom of renderd guis, buttons to act upon if you will
 		self.emojiL = emojiList
 		#windows is a list of functions that take the gui obj and will return strings
 		#they are used to order the gui and render it
@@ -41,7 +48,7 @@ class gui:
 		self.windows.append(func)
 	def render(self):
 		#this function returns a string that represents the gui renderd as text
-		ret_val = 'guiId-' + str(self.Id) + ':' + '\n' + '-'*20 + '\n\n'
+		ret_val = gui.gui_prefix + '-' + str(self.Id) + ':' + '\n' + '-'*20 + '\n\n'
 		for window in self.windows:
 			w_txt = window(self)
 			for line in w_txt.split('\n'):
@@ -65,12 +72,16 @@ class gui:
 			await msg.add_reaction(emoji)
 		return g
 	async def addSelf(self,ctx):
+		#this function adds THIS gui to the render list, as apposed to the copy from earlier
+
+		#zero is not a uniq id, generate one
 		if self.Id == 0:
 			self.Id = gui.getUniqId()
 		gui.gui_arr.append(self)
 		msg = await ctx.send(self.render())
 		for emoji in self.emojiL:
 			await msg.add_reaction(emoji)
+	
 	async def fillMsg(self,msg):
 		#this function takes a message and fills it with the gui that its (the function) from
 		await msg.clear_reactions()
@@ -81,17 +92,14 @@ async def checkGui(clientId,reaction,user):
 	#this function is ment to be run in the addReaction event
 	#in discord.py
 
-	print('COUNT ' + str(reaction.count))
 	if reaction.message.author.id == clientId and user.id != clientId:
 		#the message was made by us and we did not create the reaction event
 		#which means this is a valid message to check
- 
-		print('[*] I made that message!')
 
 		#this is the syntax that this if statement is looking for
-		#guiId-<id>:<poll description>		
+		#{gui.gui_prefix}-<id>:<poll description>		
 		split_m = reaction.message.content.split(':')
-		if len(split_m[0]) > 6 and len(split_m) > 1 and split_m[0].split('-')[0] == 'guiId' and len(split_m[0]) > 1:
+		if split_m[0].split('-')[0] == gui.gui_prefix:
 			#we have a valid gui
 			
 			#attempt to parse out the gui Id
@@ -120,12 +128,10 @@ async def checkGui(clientId,reaction,user):
 				return False
 			elif ret_val == True and type(ret_val) is not int:
 				#actualy render the gui to discord
-				print('[DEBUG] updating the message')
 				await reaction.message.edit(content=str(g.render()))
 			elif ret_val != False:
 				#add a new gui in place of the old one		
 				index = gui.getIndexId(ret_val)
-				print('[DEBUG] retried the index ' + str(index) + ' from the Id ' + str(ret_val))
 				await gui.gui_arr[index].fillMsg(reaction.message)
 				gui.delGuiId(g.Id)
 			
